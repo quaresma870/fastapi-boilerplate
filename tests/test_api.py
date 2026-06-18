@@ -22,8 +22,8 @@ async def setup_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     # Clear rate limiter state between tests
-    from app.core.rate_limit import _store
-    _store._windows.clear()
+    from app.core.rate_limit import _memory_store
+    _memory_store.clear()
     yield
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.drop_all)

@@ -1,6 +1,9 @@
 """
-Security utilities — password hashing and JWT token management.
+Security utilities — password hashing, JWT token management,
+refresh token rotation, and token denylist via Redis.
 """
+
+from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -58,3 +61,57 @@ def decode_token(token: str) -> dict | None:
         return jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
     except JWTError:
         return None
+
+
+# ── Token denylist (Redis) ────────────────────────────────────────────────────
+
+_DENYLIST_PREFIX = "denylist:"
+
+
+async def _get_redis():
+    """Return async Redis client if available, else None."""
+    if not settings.REDIS_ENABLED:
+        return None
+    try:
+        import redis.asyncio as aioredis
+        return aioredis.from_url(
+            settings.REDIS_URL,
+            encoding="utf-8",
+            decode_responses=True,
+            socket_connect_timeout=1,
+        )
+    except Exception:
+        return None
+
+
+async def deny_token(token: str) -> None:
+    """Add a token to the denylist. TTL matches token expiry."""
+    payload = decode_token(token)
+    if not payload:
+        return
+    exp = payload.get("exp")
+    if not exp:
+        return
+    ttl = int(exp - datetime.now(timezone.utc).timestamp())
+    if ttl <= 0:
+        return  # already expired
+    r = await _get_redis()
+    if r:
+        try:
+            await r.setex(f"{_DENYLIST_PREFIX}{token}", ttl, "1")
+        finally:
+            await r.aclose()
+
+
+async def is_token_denied(token: str) -> bool:
+    """Return True if token has been revoked."""
+    r = await _get_redis()
+    if not r:
+        return False  # no Redis — can't check denylist, fail open
+    try:
+        result = await r.exists(f"{_DENYLIST_PREFIX}{token}")
+        return bool(result)
+    except Exception:
+        return False
+    finally:
+        await r.aclose()
