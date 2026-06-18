@@ -51,7 +51,9 @@ docker compose up --build
 
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
-| GET | `/health` | — | Health check |
+| GET | `/health` | — | Health check (legacy redirect) |
+| GET | `/api/v1/health/live` | — | Liveness probe |
+| GET | `/api/v1/health/ready` | — | Readiness probe (DB + Redis) |
 | POST | `/api/v1/auth/register` | — | Register new user |
 | POST | `/api/v1/auth/login` | — | Login, get tokens |
 | POST | `/api/v1/auth/refresh` | — | Refresh access token |
@@ -152,6 +154,16 @@ This boilerplate is designed to be extended:
 - **Switch to PostgreSQL** — update `DATABASE_URL` in `.env`; run `alembic init` for migrations
 - **Enable Redis rate limiting** — set `REDIS_ENABLED=true` in `.env` (Redis backend coming soon)
 - **Add email verification** — wire up `SMTP_*` settings in `.env` and call from the register endpoint
+
+---
+
+## Changelog
+
+### v1.0.2
+- feat: `/api/v1/health/live` — liveness probe (process alive check)
+- feat: `/api/v1/health/ready` — readiness probe with real DB + Redis connectivity checks — closes #4
+- fix: `/health` redirects to `/api/v1/health/ready` for backwards compatibility
+- chore: Dependabot enabled for pip and GitHub Actions (weekly) — closes #6
 
 ---
 

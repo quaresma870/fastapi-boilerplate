@@ -61,10 +61,18 @@ async def login_user(client, email="user@test.com", password="Secure123"):
 # ── Health ────────────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
-async def test_health(client):
-    r = await client.get("/health")
+async def test_health_live(client):
+    r = await client.get("/api/v1/health/live")
     assert r.status_code == 200
     assert r.json()["status"] == "ok"
+
+@pytest.mark.asyncio
+async def test_health_ready(client):
+    r = await client.get("/api/v1/health/ready")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "ok"
+    assert data["checks"]["database"] == "ok"
 
 
 # ── Register ──────────────────────────────────────────────────────────────────
