@@ -1,6 +1,6 @@
 # ⚡ FastAPI Boilerplate
 
-[![CI](https://github.com/quaresma870/fastapi-boilerplate/actions/workflows/ci.yml/badge.svg)](https://github.com/quaresma870/fastapi-boilerplate/actions/workflows/ci.yml)
+[![CI](https://github.com/quaresma870/fastapi-boilerplate/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/quaresma870/fastapi-boilerplate/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.111%2B-009688?logo=fastapi&logoColor=white)
 ![Node.js](https://img.shields.io/badge/GitHub%20Actions-Node.js%2024-brightgreen?logo=nodedotjs&logoColor=white)
