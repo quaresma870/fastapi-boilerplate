@@ -2,15 +2,21 @@
 Auth endpoints — register, login, refresh, logout.
 """
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import create_access_token, create_refresh_token, decode_token
-from app.schemas.user import LoginRequest, MessageResponse, RefreshRequest, TokenResponse, UserCreate, UserResponse
+from app.schemas.user import (
+    LoginRequest,
+    MessageResponse,
+    RefreshRequest,
+    TokenResponse,
+    UserCreate,
+    UserResponse,
+)
 from app.services.user import UserService
-from fastapi import HTTPException
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
 
@@ -47,7 +53,11 @@ async def refresh(data: RefreshRequest, db: AsyncSession = Depends(get_db)):
     )
 
 
-@router.post("/logout", response_model=MessageResponse, summary="Logout (client-side token discard)")
+@router.post(
+    "/logout",
+    response_model=MessageResponse,
+    summary="Logout (client-side token discard)",
+)
 async def logout():
     # Stateless JWT: instruct client to discard tokens.
     # To invalidate server-side, add token to a Redis denylist here.

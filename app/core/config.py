@@ -2,7 +2,7 @@
 Application configuration — loaded from environment variables / .env file.
 """
 
-from typing import List
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -45,8 +45,8 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTH_PER_MINUTE: int = 10     # per IP, auth endpoints
 
     # ── CORS / Hosts ──────────────────────────────────────────────────────────
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
-    ALLOWED_HOSTS: List[str] = ["*"]
+    ALLOWED_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8000"]
+    ALLOWED_HOSTS: list[str] = ["*"]
 
     # ── Email (optional) ──────────────────────────────────────────────────────
     SMTP_HOST: str = ""
