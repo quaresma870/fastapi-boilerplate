@@ -168,6 +168,14 @@ This boilerplate is designed to be extended:
   - `ruff` ≥0.8.0
   - `redis[asyncio]` extra removed (bundled in redis ≥5.0)
 
+### v1.0.4
+- feat: cursor-based pagination on `GET /api/v1/users` — closes #12
+  (`?limit=20&cursor=<token>`, response: `{data, next_cursor, has_more, total}`)
+- feat: password reset flow — closes #13
+  (`POST /auth/forgot-password` → email → `POST /auth/reset-password`, token single-use)
+- feat: `GET /metrics` Prometheus endpoint — closes #14
+  (`http_requests_total`, `http_request_duration_seconds` with path normalisation)
+
 ### v1.0.3
 - feat: Redis-backed rate limiter with in-memory fallback — closes #2
   (`X-RateLimit-Backend: redis|memory` header indicates active backend)

@@ -28,3 +28,5 @@ anyio>=4.3.0
 ruff>=0.15.17
 
 redis>=5.0.0           # Redis-backed rate limiter + token denylist
+
+prometheus-client>=0.20.0       # /metrics endpoint

@@ -11,6 +11,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.logging import setup_logging
+from app.core.metrics import MetricsMiddleware, metrics_endpoint
 from app.core.middleware import RequestIDMiddleware
 from app.core.rate_limit import RateLimitMiddleware
 
@@ -36,6 +37,7 @@ def create_application() -> FastAPI:
 
     # ── Middleware ────────────────────────────────────────────────────────────
     app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(MetricsMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.ALLOWED_ORIGINS,
@@ -53,6 +55,8 @@ def create_application() -> FastAPI:
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
     # ── Health check ──────────────────────────────────────────────────────────
+    app.add_route("/metrics", metrics_endpoint, methods=["GET"])
+
     @app.get("/health", tags=["Health"], summary="Health check (legacy — use /api/v1/health/ready)")
     async def health():
         from fastapi.responses import RedirectResponse
