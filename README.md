@@ -3,6 +3,7 @@
 [![CI](https://github.com/quaresma870/fastapi-boilerplate/actions/workflows/ci.yml/badge.svg)](https://github.com/quaresma870/fastapi-boilerplate/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.11%2B-blue?logo=python&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.111%2B-009688?logo=fastapi&logoColor=white)
+![Node.js](https://img.shields.io/badge/GitHub%20Actions-Node.js%2024-brightgreen?logo=nodedotjs&logoColor=white)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 Production-ready FastAPI boilerplate with JWT auth, rate limiting, async SQLAlchemy, Docker, and full CI/CD. Clone and build on top of it.
@@ -129,6 +130,17 @@ pytest tests/ -v
 ```
 
 Tests use an in-memory SQLite database — no setup required.
+
+---
+
+## Changelog
+
+### v1.0.1
+- fix: `DATABASE_URL` value quoted in CI workflow — trailing colon broke YAML parser
+- fix: all 21 ruff lint errors resolved (import sorting, deprecated `Optional`/`List`/`Dict` type hints, line length)
+- fix: `pyproject.toml` ruff config moved to `[tool.ruff.lint]` section
+- chore: `bcrypt` pinned to `4.0.1` in `requirements.txt` for `passlib` compatibility
+- chore: all GitHub Actions upgraded to Node.js 24 runtime (`checkout@v6`, `setup-python@v6`, `setup-buildx-action@v4`, `build-push-action@v7`)
 
 ---
 
