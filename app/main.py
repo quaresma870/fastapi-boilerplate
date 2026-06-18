@@ -7,7 +7,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -52,9 +51,10 @@ def create_application() -> FastAPI:
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
     # ── Health check ──────────────────────────────────────────────────────────
-    @app.get("/health", tags=["Health"], summary="Health check")
+    @app.get("/health", tags=["Health"], summary="Health check (legacy — use /api/v1/health/ready)")
     async def health():
-        return JSONResponse({"status": "ok", "version": settings.VERSION})
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url=f"{settings.API_V1_PREFIX}/health/ready")
 
     return app
 
