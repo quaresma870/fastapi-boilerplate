@@ -159,6 +159,15 @@ This boilerplate is designed to be extended:
 
 ## Changelog
 
+### v1.0.4
+- chore: dependency updates from Dependabot — closes #7 #8 #9 #10 #11
+  - `sqlalchemy` ≥2.0.51
+  - `asyncpg` ≥0.31.0
+  - `pydantic-settings` ≥2.14.1
+  - `pytest-asyncio` ≥1.4.0
+  - `ruff` ≥0.8.0
+  - `redis[asyncio]` extra removed (bundled in redis ≥5.0)
+
 ### v1.0.3
 - feat: Redis-backed rate limiter with in-memory fallback — closes #2
   (`X-RateLimit-Backend: redis|memory` header indicates active backend)
