@@ -33,7 +33,7 @@ jobs:
         run: pytest tests/ -v --tb=short
         env:
           SECRET_KEY: test-secret-key-for-ci
-          DATABASE_URL: sqlite+aiosqlite:///:memory:
+          DATABASE_URL: "sqlite+aiosqlite:///:memory:"
           ENVIRONMENT: development
 
   docker:
@@ -49,6 +49,6 @@ jobs:
           context: .
           file: docker/Dockerfile
           push: false
-          tags: fastapi-boilerplate:${{ github.sha }}
+          tags: fastapi-boilerplate:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
