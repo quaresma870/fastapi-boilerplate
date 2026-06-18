@@ -6,7 +6,7 @@ pydantic-settings>=2.2.0
 pydantic[email]>=2.7.0
 
 # ── Database ──────────────────────────────────────────────────────────────────
-sqlalchemy>=2.0.0
+sqlalchemy>=2.0.51
 aiosqlite>=0.20.0           # SQLite async driver (dev/test)
 asyncpg>=0.29.0             # PostgreSQL async driver (production)
 alembic>=1.13.0             # migrations
