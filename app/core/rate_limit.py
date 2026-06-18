@@ -7,7 +7,6 @@ Stricter limits apply automatically to /auth/ endpoints.
 
 import time
 from collections import defaultdict, deque
-from typing import Deque, Dict
 
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
@@ -20,7 +19,7 @@ class _InMemoryStore:
     """Thread-safe sliding window rate limiter backed by in-process memory."""
 
     def __init__(self):
-        self._windows: Dict[str, Deque[float]] = defaultdict(deque)
+        self._windows: dict[str, deque[float]] = defaultdict(deque)
 
     def is_allowed(self, key: str, limit: int, window: int = 60) -> bool:
         now = time.time()

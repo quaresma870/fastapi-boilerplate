@@ -3,10 +3,8 @@ Pydantic schemas — request/response validation for users and auth.
 """
 
 from datetime import datetime
-from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
-
 
 # ── User ──────────────────────────────────────────────────────────────────────
 
@@ -29,9 +27,9 @@ class UserCreate(UserBase):
 
 
 class UserUpdate(BaseModel):
-    email: Optional[EmailStr] = None
-    username: Optional[str] = Field(None, min_length=3, max_length=50)
-    password: Optional[str] = Field(None, min_length=8, max_length=128)
+    email: EmailStr | None = None
+    username: str | None = Field(None, min_length=3, max_length=50)
+    password: str | None = Field(None, min_length=8, max_length=128)
 
 
 class UserResponse(UserBase):

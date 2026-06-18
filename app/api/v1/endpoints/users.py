@@ -2,7 +2,7 @@
 Users endpoints — profile management and admin operations.
 """
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import get_current_superuser, get_current_user
