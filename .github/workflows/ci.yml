@@ -29,7 +29,8 @@ jobs:
           python-version: "3.11"
           cache: pip
       - run: pip install -r requirements.txt
-      - run: pytest tests/ -v --tb=short
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
         env:
           SECRET_KEY: test-secret-key-for-ci
           DATABASE_URL: sqlite+aiosqlite:///:memory:
