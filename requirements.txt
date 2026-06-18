@@ -27,5 +27,4 @@ anyio>=4.3.0
 # ── Dev / Linting ─────────────────────────────────────────────────────────────
 ruff>=0.15.17
 
-redis[asyncio]>=5.0.0           # Redis-backed rate limiter + token denylist
-alembic>=1.13.0                 # Database migrations
+redis>=5.0.0           # Redis-backed rate limiter + token denylist
