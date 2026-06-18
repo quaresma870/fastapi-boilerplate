@@ -25,7 +25,6 @@ pytest-asyncio>=1.4.0
 anyio>=4.3.0
 
 # ── Dev / Linting ─────────────────────────────────────────────────────────────
-ruff>=0.8.0
+ruff>=0.15.17
 
 redis>=5.0.0           # Redis-backed rate limiter + token denylist
-alembic>=1.13.0                 # Database migrations
