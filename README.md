@@ -159,6 +159,15 @@ This boilerplate is designed to be extended:
 
 ## Changelog
 
+### v1.0.3
+- feat: Redis-backed rate limiter with in-memory fallback — closes #2
+  (`X-RateLimit-Backend: redis|memory` header indicates active backend)
+- feat: refresh token rotation — closes #3
+  (used refresh tokens are invalidated; logout adds token to Redis denylist)
+- feat: RFC 7807 Problem Details error responses + `X-Request-ID` middleware — closes #5
+- feat: Alembic migrations configured for async SQLAlchemy — closes #1
+  (initial migration generated; run `alembic upgrade head` to apply)
+
 ### v1.0.2
 - feat: `/api/v1/health/live` — liveness probe (process alive check)
 - feat: `/api/v1/health/ready` — readiness probe with real DB + Redis connectivity checks — closes #4
