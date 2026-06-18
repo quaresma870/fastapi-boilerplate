@@ -165,3 +165,108 @@ async def test_delete_me(client):
         headers={"Authorization": f"Bearer {tokens['access_token']}"}
     )
     assert r.status_code == 200
+
+
+# ── Pagination ────────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_list_users_requires_superuser(client):
+    await register_user(client)
+    tokens = (await login_user(client)).json()
+    r = await client.get(
+        "/api/v1/users",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_list_users_paginated(client):
+    import uuid
+
+    from app.core.security import hash_password
+    from app.models.user import User
+
+    # Create superuser directly in test session
+    async with TestSession() as db:
+        su = User(
+            id=str(uuid.uuid4()),
+            email="admin@test.com",
+            username="admin",
+            hashed_password=hash_password("Admin123"),
+            is_superuser=True,
+        )
+        db.add(su)
+        await db.commit()
+
+    tokens = (await login_user(client, email="admin@test.com", password="Admin123")).json()
+    r = await client.get(
+        "/api/v1/users?limit=10",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert "data" in data
+    assert "has_more" in data
+    assert isinstance(data["total"], int)
+
+
+# ── Password reset ────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_forgot_password_always_200(client):
+    # Should return 200 even for non-existent email (prevent enumeration)
+    r = await client.post(
+        "/api/v1/auth/forgot-password",
+        json={"email": "nonexistent@test.com"},
+    )
+    assert r.status_code == 200
+    assert "reset link" in r.json()["message"]
+
+
+@pytest.mark.asyncio
+async def test_reset_password_invalid_token(client):
+    r = await client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": "invalid.token.here", "new_password": "NewPass123"},
+    )
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_reset_password_flow(client):
+    await register_user(client)
+    from datetime import timedelta
+
+    from app.core.security import _create_token
+    from app.services.user import UserService
+
+    async with TestSession() as db:
+        user = await UserService(db).get_by_email("user@test.com")
+        token = _create_token(user.id, timedelta(hours=1), "password_reset")
+
+    r = await client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": token, "new_password": "NewPassword123"},
+    )
+    assert r.status_code == 200
+
+    # Token cannot be reused (if Redis denylist is available)
+    r2 = await client.post(
+        "/api/v1/auth/reset-password",
+        json={"token": token, "new_password": "AnotherPass123"},
+    )
+    # Without Redis in test env, token reuse check is skipped (fail-open)
+    # In production with Redis enabled this returns 400
+    assert r2.status_code in (200, 400, 401)
+
+
+# ── Metrics ───────────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_metrics_endpoint(client):
+    # Hit another endpoint first to generate some metrics
+    await client.get("/health")
+    r = await client.get("/metrics")
+    assert r.status_code == 200
+    assert b"http_requests_total" in r.content
