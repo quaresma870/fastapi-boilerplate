@@ -137,42 +137,28 @@ Tests use an in-memory SQLite database — no setup required.
 
 ## Changelog
 
-### v1.0.1
-- fix: `DATABASE_URL` value quoted in CI workflow — trailing colon broke YAML parser
-- fix: all 21 ruff lint errors resolved (import sorting, deprecated `Optional`/`List`/`Dict` type hints, line length)
-- fix: `pyproject.toml` ruff config moved to `[tool.ruff.lint]` section
-- chore: `bcrypt` pinned to `4.0.1` in `requirements.txt` for `passlib` compatibility
-- chore: all GitHub Actions upgraded to Node.js 24 runtime (`checkout@v6`, `setup-python@v6`, `setup-buildx-action@v4`, `build-push-action@v7`)
-
----
-
-## Extending
-
-This boilerplate is designed to be extended:
-
-- **Add a new resource** — create `models/`, `schemas/`, `services/`, `endpoints/` files and register the router in `api/v1/router.py`
-- **Switch to PostgreSQL** — update `DATABASE_URL` in `.env`; run `alembic init` for migrations
-- **Enable Redis rate limiting** — set `REDIS_ENABLED=true` in `.env` (Redis backend coming soon)
-- **Add email verification** — wire up `SMTP_*` settings in `.env` and call from the register endpoint
-
----
-
-## Changelog
-
 ### v1.0.3
-- feat: Redis-backed rate limiter with in-memory fallback — closes #2
-  (`X-RateLimit-Backend: redis|memory` header indicates active backend)
-- feat: refresh token rotation — closes #3
-  (used refresh tokens are invalidated; logout adds token to Redis denylist)
-- feat: RFC 7807 Problem Details error responses + `X-Request-ID` middleware — closes #5
-- feat: Alembic migrations configured for async SQLAlchemy — closes #1
-  (initial migration generated; run `alembic upgrade head` to apply)
+- feat: Redis sliding window rate limiter with in-memory fallback — closes #2
+  (`X-RateLimit-Backend: redis|memory` header; safe for multi-instance deployments)
+- feat: Refresh token rotation + Redis denylist — closes #3
+  (used tokens invalidated on `/auth/refresh`; logout revokes tokens server-side)
+- feat: RFC 7807 Problem Details error responses — closes #5
+  (`{"type", "title", "status", "detail", "instance", "request_id"}`)
+- feat: `X-Request-ID` middleware — unique UUID per request, echoed in response — closes #5
+- feat: Alembic async migrations — closes #1
+  (run `alembic upgrade head`; `alembic revision --autogenerate` for new changes)
+- fix: long line in validation error handler (ruff E501)
 
 ### v1.0.2
-- feat: `/api/v1/health/live` — liveness probe (process alive check)
-- feat: `/api/v1/health/ready` — readiness probe with real DB + Redis connectivity checks — closes #4
-- fix: `/health` redirects to `/api/v1/health/ready` for backwards compatibility
-- chore: Dependabot enabled for pip and GitHub Actions (weekly) — closes #6
+- feat: `/api/v1/health/live` — liveness probe — closes #4
+- feat: `/api/v1/health/ready` — readiness with real DB + Redis checks (503 if degraded) — closes #4
+- chore: Dependabot enabled for pip + GitHub Actions (weekly) — closes #6
+
+### v1.0.1
+- fix: CI workflow — `DATABASE_URL` quoted to avoid YAML parser error
+- fix: 21 ruff lint errors resolved
+- chore: GitHub Actions upgraded to Node.js 24
+- chore: `bcrypt` pinned to 4.0.1
 
 ---
 
