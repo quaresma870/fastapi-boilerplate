@@ -89,7 +89,10 @@ def create_application() -> FastAPI:
                 "type": "https://httpstatuses.com/422",
                 "title": "Validation Error",
                 "status": 422,
-                "detail": [{"loc": e["loc"], "msg": e["msg"], "type": e["type"]} for e in exc.errors()],
+                "detail": [
+                    {"loc": e["loc"], "msg": e["msg"], "type": e["type"]}
+                    for e in exc.errors()
+                ],
                 "instance": str(request.url),
                 **({"request_id": request_id} if request_id else {}),
             },
