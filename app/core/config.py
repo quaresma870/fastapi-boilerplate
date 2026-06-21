@@ -2,8 +2,10 @@
 Application configuration — loaded from environment variables / .env file.
 """
 
-
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+_INSECURE_DEFAULT_SECRET_KEY = "change-me-in-production-use-openssl-rand-hex-32"
 
 
 class Settings(BaseSettings):
@@ -19,7 +21,7 @@ class Settings(BaseSettings):
         "Production-ready FastAPI boilerplate with JWT auth, "
         "rate limiting, versioned API, and full CI-CD."
     )
-    VERSION: str = "1.0.0"
+    VERSION: str = "1.0.5"
     ENVIRONMENT: str = "development"  # development | staging | production
     DEBUG: bool = True
 
@@ -27,7 +29,7 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
 
     # ── Security ──────────────────────────────────────────────────────────────
-    SECRET_KEY: str = "change-me-in-production-use-openssl-rand-hex-32"
+    SECRET_KEY: str = _INSECURE_DEFAULT_SECRET_KEY
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
@@ -54,6 +56,33 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     EMAILS_FROM: str = "noreply@example.com"
+
+    @model_validator(mode="after")
+    def _refuse_insecure_production_defaults(self) -> "Settings":
+        """Fail fast and loud at startup rather than silently running an
+        insecure configuration. SECRET_KEY's default is a known public
+        string (it's right there in this repo's source on GitHub) — any
+        production deployment that didn't override it would let anyone
+        forge valid JWTs, including ones claiming superuser access.
+        ALLOWED_HOSTS=["*"] disables Host-header validation entirely.
+        Both are reasonable, convenient defaults for local development,
+        which is exactly why they must be checked before anything is
+        actually exposed as 'production'.
+        """
+        if self.ENVIRONMENT == "production":
+            if self.SECRET_KEY == _INSECURE_DEFAULT_SECRET_KEY:
+                raise ValueError(
+                    "Refusing to start: ENVIRONMENT=production but SECRET_KEY is still "
+                    "the insecure default. Set a real secret, e.g.: "
+                    "SECRET_KEY=$(openssl rand -hex 32)"
+                )
+            if self.ALLOWED_HOSTS == ["*"]:
+                raise ValueError(
+                    "Refusing to start: ENVIRONMENT=production but ALLOWED_HOSTS is still "
+                    "the wildcard default. Set it to your actual domain(s), e.g.: "
+                    'ALLOWED_HOSTS=["api.example.com"]'
+                )
+        return self
 
 
 settings = Settings()

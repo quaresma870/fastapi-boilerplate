@@ -5,25 +5,46 @@ refresh token rotation, and token denylist via Redis.
 
 from __future__ import annotations
 
+import hashlib
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 
 from app.core.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
 # ── Password ──────────────────────────────────────────────────────────────────
+#
+# bcrypt only uses the first 72 BYTES of its input — anything beyond that is
+# silently ignored by the algorithm itself. With a raw password handed
+# directly to bcrypt, two different passwords sharing the same first 72
+# bytes (e.g. "x"*72+"foo" and "x"*72+"bar") hash identically and verify
+# against each other, even though the application's own registration schema
+# allows passwords up to 128 characters. SHA-256 pre-hashing the password
+# before bcrypt collapses it to a fixed 32-byte digest first, so the full
+# entropy of an arbitrarily long password is preserved — the same pattern
+# Django's bcrypt backend uses. SHA-256's collision resistance is not a
+# practical concern at this length.
+#
+# NOTE — breaking change for any deployment with existing stored hashes:
+# this changes what's actually fed into bcrypt, so password hashes created
+# before this change will no longer verify. See CHANGELOG.md.
+
+def _prehash(password: str) -> bytes:
+    return hashlib.sha256(password.encode("utf-8")).digest()
+
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(_prehash(password), bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    try:
+        return bcrypt.checkpw(_prehash(plain), hashed.encode("utf-8"))
+    except (ValueError, TypeError):
+        # malformed/corrupted stored hash — never raise out of a verify call
+        return False
 
 
 # ── Tokens ────────────────────────────────────────────────────────────────────

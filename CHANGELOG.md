@@ -3,6 +3,39 @@
 All notable changes to this project are documented here. See the
 [README](README.md) for current features and usage.
 
+### v1.0.5
+- fix: **silent password truncation past 72 bytes** — passwords were hashed by handing them
+  directly to bcrypt via `passlib`, but bcrypt only ever uses the first 72 bytes of its input.
+  Two different passwords sharing the same first 72 bytes (e.g. `"x"*72+"foo"` vs `"x"*72+"bar"`)
+  hashed identically and verified against each other, even though the registration schema
+  explicitly allows passwords up to 128 characters — demonstrated and confirmed before fixing,
+  not assumed. Fixed by SHA-256 pre-hashing the password before bcrypt (the same pattern Django's
+  bcrypt backend uses), which collapses any input to a fixed 32-byte digest first, preserving the
+  full entropy of arbitrarily long passwords. **Breaking change for any deployment with existing
+  stored hashes** — they were computed over the raw password, not the new pre-hashed digest, and
+  will no longer verify. Force a password reset for existing users after upgrading, or implement
+  dual verification (try new scheme, fall back to old, re-hash on successful legacy login) if
+  upgrading a deployment with real user data.
+- chore: replaced `passlib` (unmaintained, last released years ago, known incompatibility with
+  newer `bcrypt` releases — this project had `bcrypt` pinned to `4.0.1` specifically to work
+  around it) with a small direct wrapper around the `bcrypt` library. Also removes the
+  `DeprecationWarning` passlib triggered via its `crypt`-module probing, which would have become a
+  hard failure once Python 3.13 actually removes that module. `bcrypt` is now unpinned
+  (`>=4.1.0`).
+- fix: `Settings` now refuses to start when `ENVIRONMENT=production` and either `SECRET_KEY` is
+  still its known-public default value (published right here in this repo's source — any
+  deployment that didn't override it would let anyone forge valid JWTs, including ones claiming
+  superuser access) or `ALLOWED_HOSTS` is still the wildcard default (disables Host-header
+  validation entirely). Fails fast and loud at config-load time with an actionable error message,
+  rather than silently running insecurely. Scoped to `production` only — `development`/`staging`
+  keep working with the convenient defaults.
+- fix: `settings.VERSION` (served in `/health` and the OpenAPI docs) was still `"1.0.0"` through
+  four real releases — bumped to match, plus a regression test that checks `settings.VERSION`
+  against `CHANGELOG.md`'s latest entry going forward.
+- chore: removed leftover empty junk directories from an early shell command that didn't expand
+  brace patterns as intended (`{api/v1/endpoints,core,...}` etc.) — never tracked in git, purely
+  local clutter, but worth a clean sweep.
+
 ### v1.0.4
 - feat: cursor-based pagination on `GET /api/v1/users` — closes #12
   (`?limit=20&cursor=<token>`, response: `{data, next_cursor, has_more, total}`)
