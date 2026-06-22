@@ -211,6 +211,116 @@ async def test_list_users_paginated(client):
     assert isinstance(data["total"], int)
 
 
+# ── Admin user management ───────────────────────────────────────────────────────
+
+async def _create_superuser(email="admin@test.com", username="admin", password="Admin123"):
+    import uuid
+
+    from app.core.security import hash_password
+    from app.models.user import User
+
+    async with TestSession() as db:
+        su = User(
+            id=str(uuid.uuid4()), email=email, username=username,
+            hashed_password=hash_password(password), is_superuser=True,
+        )
+        db.add(su)
+        await db.commit()
+        return su.id
+
+
+@pytest.mark.asyncio
+async def test_admin_can_deactivate_another_user(client):
+    await register_user(client)
+    target_tokens = (await login_user(client)).json()
+    me = await client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {target_tokens['access_token']}"},
+    )
+    target_id = me.json()["id"]
+
+    await _create_superuser()
+    admin_tokens = (await login_user(client, email="admin@test.com", password="Admin123")).json()
+
+    r = await client.patch(
+        f"/api/v1/users/{target_id}",
+        json={"is_active": False},
+        headers={"Authorization": f"Bearer {admin_tokens['access_token']}"},
+    )
+    assert r.status_code == 200
+    assert r.json()["is_active"] is False
+
+    # The deactivated user can no longer log in
+    r2 = await login_user(client)
+    assert r2.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_can_promote_another_user(client):
+    await register_user(client)
+    target_tokens = (await login_user(client)).json()
+    me = await client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {target_tokens['access_token']}"},
+    )
+    target_id = me.json()["id"]
+
+    await _create_superuser()
+    admin_tokens = (await login_user(client, email="admin@test.com", password="Admin123")).json()
+
+    r = await client.patch(
+        f"/api/v1/users/{target_id}",
+        json={"is_superuser": True},
+        headers={"Authorization": f"Bearer {admin_tokens['access_token']}"},
+    )
+    assert r.status_code == 200
+    assert r.json()["is_superuser"] is True
+
+
+@pytest.mark.asyncio
+async def test_admin_cannot_modify_own_account_via_admin_endpoint(client):
+    admin_id = await _create_superuser()
+    admin_tokens = (await login_user(client, email="admin@test.com", password="Admin123")).json()
+
+    r = await client.patch(
+        f"/api/v1/users/{admin_id}",
+        json={"is_superuser": False},
+        headers={"Authorization": f"Bearer {admin_tokens['access_token']}"},
+    )
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_non_admin_cannot_use_admin_update_endpoint(client):
+    await register_user(client)
+    tokens = (await login_user(client)).json()
+    me = await client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    my_id = me.json()["id"]
+
+    r = await client.patch(
+        f"/api/v1/users/{my_id}",
+        json={"is_superuser": True},
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_update_nonexistent_user_404s(client):
+    await _create_superuser()
+    admin_tokens = (await login_user(client, email="admin@test.com", password="Admin123")).json()
+
+    r = await client.patch(
+        "/api/v1/users/00000000-0000-0000-0000-000000000000",
+        json={"is_active": False},
+        headers={"Authorization": f"Bearer {admin_tokens['access_token']}"},
+    )
+    assert r.status_code == 404
+
+
 # ── Password reset ────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
