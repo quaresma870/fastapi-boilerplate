@@ -12,7 +12,7 @@ from app.api.v1.deps import get_current_superuser, get_current_user
 from app.core.database import get_db
 from app.core.pagination import PaginatedResponse, decode_cursor, encode_cursor
 from app.models.user import User
-from app.schemas.user import MessageResponse, UserResponse, UserUpdate
+from app.schemas.user import AdminUserUpdate, MessageResponse, UserResponse, UserUpdate
 from app.services.user import UserService
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -105,3 +105,30 @@ async def get_user(user_id: str, db: AsyncSession = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found.")
     return user
+
+
+@router.patch(
+    "/{user_id}",
+    response_model=UserResponse,
+    summary="[Admin] Activate/deactivate or promote/demote a user",
+)
+async def admin_update_user(
+    user_id: str,
+    data: AdminUserUpdate,
+    current_superuser: User = Depends(get_current_superuser),
+    db: AsyncSession = Depends(get_db),
+):
+    """Lets a superuser deactivate a misbehaving account or promote/demote
+    another user's admin status. Use /users/me to change your own profile —
+    this endpoint deliberately refuses to target your own account, so a
+    superuser can't accidentally demote or deactivate themselves (e.g. the
+    only remaining admin locking themselves out)."""
+    if user_id == current_superuser.id:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot modify your own account through this endpoint. Use /users/me instead.",
+        )
+    target = await UserService(db).get_by_id(user_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found.")
+    return await UserService(db).admin_update(target, data)

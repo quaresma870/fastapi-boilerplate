@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.email import build_reset_email, send_email
+from app.core.email import build_reset_email, build_verification_email
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -19,6 +19,7 @@ from app.core.security import (
     hash_password,
     is_token_denied,
 )
+from app.core.tasks import enqueue_email
 from app.schemas.user import (
     ForgotPasswordRequest,
     LoginRequest,
@@ -40,8 +41,34 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
     status_code=status.HTTP_201_CREATED,
     summary="Register a new user",
 )
-async def register(data: UserCreate, db: AsyncSession = Depends(get_db)):
-    return await UserService(db).create(data)
+async def register(
+    data: UserCreate,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Creates the account immediately (is_verified=False) — registration and
+    login are not blocked on verification, matching how most real-world apps
+    handle this (GitHub, etc.): you can use the account right away, but
+    is_verified is exposed on the user so a consuming app can choose to gate
+    specific actions on it if needed.
+    """
+    user = await UserService(db).create(data)
+
+    from datetime import timedelta
+
+    from app.core.security import _create_token
+
+    token = _create_token(user.id, timedelta(hours=24), token_type="email_verification")
+    verify_url = f"{settings.ALLOWED_ORIGINS[0]}/verify-email?token={token}"
+    await enqueue_email(
+        background_tasks,
+        to=user.email,
+        subject="Verify your email",
+        body_html=build_verification_email(verify_url),
+    )
+
+    return user
 
 
 @router.post("/login", response_model=TokenResponse, summary="Login and get tokens")
@@ -112,8 +139,8 @@ async def forgot_password(
 
         token = _create_token(user.id, timedelta(hours=1), token_type="password_reset")
         reset_url = f"{settings.ALLOWED_ORIGINS[0]}/reset-password?token={token}"
-        background_tasks.add_task(
-            send_email,
+        await enqueue_email(
+            background_tasks,
             to=data.email,
             subject="Password Reset Request",
             body_html=build_reset_email(reset_url),
@@ -152,3 +179,35 @@ async def reset_password(
     await deny_token(data.token)
 
     return MessageResponse(message="Password updated successfully. Please log in.")
+
+
+@router.get(
+    "/verify-email",
+    response_model=MessageResponse,
+    summary="Verify email using the token from the verification email",
+)
+async def verify_email(token: str, db: AsyncSession = Depends(get_db)):
+    payload = decode_token(token)
+    if not payload or payload.get("type") != "email_verification":
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token.")
+
+    if await is_token_denied(token):
+        raise HTTPException(status_code=400, detail="Verification token has already been used.")
+
+    user = await UserService(db).get_by_id(payload["sub"])
+    if not user:
+        raise HTTPException(status_code=400, detail="User not found.")
+
+    if user.is_verified:
+        # Already verified — treat as success rather than an error, since
+        # clicking an old link twice (e.g. email client pre-fetching links)
+        # shouldn't surface a confusing failure for something harmless.
+        return MessageResponse(message="Email already verified.")
+
+    user.is_verified = True
+    await db.flush()
+
+    # Single-use, consistent with the password-reset token handling above.
+    await deny_token(token)
+
+    return MessageResponse(message="Email verified successfully.")

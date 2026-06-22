@@ -32,10 +32,20 @@ class UserUpdate(BaseModel):
     password: str | None = Field(None, min_length=8, max_length=128)
 
 
+class AdminUserUpdate(BaseModel):
+    """Admin-only fields a superuser can change on another user's account.
+    Deliberately separate from UserUpdate — email/username/password stay
+    self-service only via /users/me; is_active/is_superuser are
+    administrative actions, never settable by users on their own account."""
+    is_active: bool | None = None
+    is_superuser: bool | None = None
+
+
 class UserResponse(UserBase):
     id: str
     is_active: bool
     is_superuser: bool
+    is_verified: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}

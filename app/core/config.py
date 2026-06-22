@@ -21,7 +21,7 @@ class Settings(BaseSettings):
         "Production-ready FastAPI boilerplate with JWT auth, "
         "rate limiting, versioned API, and full CI-CD."
     )
-    VERSION: str = "1.0.5"
+    VERSION: str = "1.1.0"
     ENVIRONMENT: str = "development"  # development | staging | production
     DEBUG: bool = True
 
@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     # ── Rate limiting ─────────────────────────────────────────────────────────
     RATE_LIMIT_PER_MINUTE: int = 60          # per IP, general endpoints
     RATE_LIMIT_AUTH_PER_MINUTE: int = 10     # per IP, auth endpoints
+
+    # ── Tracing (optional — see core/tracing.py) ──────────────────────────────
+    OTEL_ENABLED: bool = False
+    OTEL_SERVICE_NAME: str = "fastapi-boilerplate"
+    OTEL_EXPORTER_OTLP_ENDPOINT: str = ""    # e.g. http://localhost:4318/v1/traces
+                                              # empty = export to console instead
 
     # ── CORS / Hosts ──────────────────────────────────────────────────────────
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8000"]

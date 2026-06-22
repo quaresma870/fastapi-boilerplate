@@ -49,6 +49,15 @@ jobs:
           context: .
           file: docker/Dockerfile
           push: false
+          load: true
           tags: fastapi-boilerplate:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      - name: Verify the container runs as a non-root user
+        run: |
+          USER=$(docker run --rm fastapi-boilerplate:latest whoami)
+          echo "Container runs as: $USER"
+          if [ "$USER" = "root" ]; then
+            echo "Container is running as root — expected a non-root user."
+            exit 1
+          fi

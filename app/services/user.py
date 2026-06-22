@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.security import hash_password, verify_password
 from app.models.user import User
-from app.schemas.user import UserCreate, UserUpdate
+from app.schemas.user import AdminUserUpdate, UserCreate, UserUpdate
 
 
 class UserService:
@@ -81,3 +81,16 @@ class UserService:
     async def delete(self, user: User) -> None:
         await self.db.delete(user)
         await self.db.flush()
+
+    async def admin_update(self, user: User, data: AdminUserUpdate) -> User:
+        """Applies administrative changes (is_active/is_superuser) to a
+        target user. Self-modification is rejected by the endpoint layer
+        before this is called — never enforced twice in two places with
+        slightly different logic, the endpoint is the single source of truth
+        for that check."""
+        if data.is_active is not None:
+            user.is_active = data.is_active
+        if data.is_superuser is not None:
+            user.is_superuser = data.is_superuser
+        await self.db.flush()
+        return user

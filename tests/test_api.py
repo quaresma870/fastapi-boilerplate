@@ -211,6 +211,116 @@ async def test_list_users_paginated(client):
     assert isinstance(data["total"], int)
 
 
+# ── Admin user management ───────────────────────────────────────────────────────
+
+async def _create_superuser(email="admin@test.com", username="admin", password="Admin123"):
+    import uuid
+
+    from app.core.security import hash_password
+    from app.models.user import User
+
+    async with TestSession() as db:
+        su = User(
+            id=str(uuid.uuid4()), email=email, username=username,
+            hashed_password=hash_password(password), is_superuser=True,
+        )
+        db.add(su)
+        await db.commit()
+        return su.id
+
+
+@pytest.mark.asyncio
+async def test_admin_can_deactivate_another_user(client):
+    await register_user(client)
+    target_tokens = (await login_user(client)).json()
+    me = await client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {target_tokens['access_token']}"},
+    )
+    target_id = me.json()["id"]
+
+    await _create_superuser()
+    admin_tokens = (await login_user(client, email="admin@test.com", password="Admin123")).json()
+
+    r = await client.patch(
+        f"/api/v1/users/{target_id}",
+        json={"is_active": False},
+        headers={"Authorization": f"Bearer {admin_tokens['access_token']}"},
+    )
+    assert r.status_code == 200
+    assert r.json()["is_active"] is False
+
+    # The deactivated user can no longer log in
+    r2 = await login_user(client)
+    assert r2.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_can_promote_another_user(client):
+    await register_user(client)
+    target_tokens = (await login_user(client)).json()
+    me = await client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {target_tokens['access_token']}"},
+    )
+    target_id = me.json()["id"]
+
+    await _create_superuser()
+    admin_tokens = (await login_user(client, email="admin@test.com", password="Admin123")).json()
+
+    r = await client.patch(
+        f"/api/v1/users/{target_id}",
+        json={"is_superuser": True},
+        headers={"Authorization": f"Bearer {admin_tokens['access_token']}"},
+    )
+    assert r.status_code == 200
+    assert r.json()["is_superuser"] is True
+
+
+@pytest.mark.asyncio
+async def test_admin_cannot_modify_own_account_via_admin_endpoint(client):
+    admin_id = await _create_superuser()
+    admin_tokens = (await login_user(client, email="admin@test.com", password="Admin123")).json()
+
+    r = await client.patch(
+        f"/api/v1/users/{admin_id}",
+        json={"is_superuser": False},
+        headers={"Authorization": f"Bearer {admin_tokens['access_token']}"},
+    )
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_non_admin_cannot_use_admin_update_endpoint(client):
+    await register_user(client)
+    tokens = (await login_user(client)).json()
+    me = await client.get(
+        "/api/v1/users/me",
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    my_id = me.json()["id"]
+
+    r = await client.patch(
+        f"/api/v1/users/{my_id}",
+        json={"is_superuser": True},
+        headers={"Authorization": f"Bearer {tokens['access_token']}"},
+    )
+    assert r.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_update_nonexistent_user_404s(client):
+    await _create_superuser()
+    admin_tokens = (await login_user(client, email="admin@test.com", password="Admin123")).json()
+
+    r = await client.patch(
+        "/api/v1/users/00000000-0000-0000-0000-000000000000",
+        json={"is_active": False},
+        headers={"Authorization": f"Bearer {admin_tokens['access_token']}"},
+    )
+    assert r.status_code == 404
+
+
 # ── Password reset ────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio
@@ -259,6 +369,95 @@ async def test_reset_password_flow(client):
     # Without Redis in test env, token reuse check is skipped (fail-open)
     # In production with Redis enabled this returns 400
     assert r2.status_code in (200, 400, 401)
+
+
+# ── Email verification ───────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_register_creates_unverified_user(client):
+    r = await register_user(client)
+    assert r.status_code == 201
+    assert r.json()["is_verified"] is False
+
+
+@pytest.mark.asyncio
+async def test_verify_email_invalid_token(client):
+    r = await client.get("/api/v1/auth/verify-email", params={"token": "invalid.token.here"})
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_verify_email_wrong_token_type_rejected(client):
+    """A password-reset token must not also work as an email-verification
+    token — type checking matters, not just signature validity."""
+    await register_user(client)
+    from datetime import timedelta
+
+    from app.core.security import _create_token
+    from app.services.user import UserService
+
+    async with TestSession() as db:
+        user = await UserService(db).get_by_email("user@test.com")
+        token = _create_token(user.id, timedelta(hours=1), "password_reset")
+
+    r = await client.get("/api/v1/auth/verify-email", params={"token": token})
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_verify_email_flow(client):
+    await register_user(client)
+    from datetime import timedelta
+
+    from app.core.security import _create_token
+    from app.services.user import UserService
+
+    async with TestSession() as db:
+        user = await UserService(db).get_by_email("user@test.com")
+        token = _create_token(user.id, timedelta(hours=24), "email_verification")
+
+    r = await client.get("/api/v1/auth/verify-email", params={"token": token})
+    assert r.status_code == 200
+    assert "verified" in r.json()["message"].lower()
+
+    async with TestSession() as db:
+        user = await UserService(db).get_by_email("user@test.com")
+        assert user.is_verified is True
+
+
+@pytest.mark.asyncio
+async def test_verify_email_twice_is_graceful(client):
+    """Clicking an already-used (but still otherwise valid) verification
+    link a second time should not surface a confusing error — e.g. some
+    email clients pre-fetch links, which would otherwise "use up" the
+    token before the real user ever clicks it."""
+    await register_user(client)
+    from datetime import timedelta
+
+    from app.core.security import _create_token
+    from app.services.user import UserService
+
+    async with TestSession() as db:
+        user = await UserService(db).get_by_email("user@test.com")
+        token = _create_token(user.id, timedelta(hours=24), "email_verification")
+
+    r1 = await client.get("/api/v1/auth/verify-email", params={"token": token})
+    assert r1.status_code == 200
+
+    r2 = await client.get("/api/v1/auth/verify-email", params={"token": token})
+    # Either the denylist already caught the reuse (400, if Redis is
+    # available) or the is_verified short-circuit handled it gracefully
+    # (200) — either is correct, never a 500 or an unhandled error.
+    assert r2.status_code in (200, 400)
+
+
+@pytest.mark.asyncio
+async def test_unverified_user_can_still_log_in(client):
+    """Registration/login are not blocked on verification — is_verified is
+    informational, consuming apps decide what (if anything) to gate on it."""
+    await register_user(client)
+    r = await login_user(client)
+    assert r.status_code == 200
 
 
 # ── Metrics ───────────────────────────────────────────────────────────────────
