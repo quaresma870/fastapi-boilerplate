@@ -12,7 +12,7 @@ asyncpg>=0.31.0             # PostgreSQL async driver (production)
 alembic>=1.13.0             # migrations
 
 # ── Auth / Security ───────────────────────────────────────────────────────────
-python-jose[cryptography]>=3.3.0
+python-jose[cryptography]>=3.5.0
 bcrypt>=4.1.0
 
 # ── HTTP ──────────────────────────────────────────────────────────────────────
