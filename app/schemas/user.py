@@ -45,6 +45,7 @@ class UserResponse(UserBase):
     id: str
     is_active: bool
     is_superuser: bool
+    is_verified: bool
     created_at: datetime
 
     model_config = {"from_attributes": True}

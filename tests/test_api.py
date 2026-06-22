@@ -371,6 +371,95 @@ async def test_reset_password_flow(client):
     assert r2.status_code in (200, 400, 401)
 
 
+# ── Email verification ───────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_register_creates_unverified_user(client):
+    r = await register_user(client)
+    assert r.status_code == 201
+    assert r.json()["is_verified"] is False
+
+
+@pytest.mark.asyncio
+async def test_verify_email_invalid_token(client):
+    r = await client.get("/api/v1/auth/verify-email", params={"token": "invalid.token.here"})
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_verify_email_wrong_token_type_rejected(client):
+    """A password-reset token must not also work as an email-verification
+    token — type checking matters, not just signature validity."""
+    await register_user(client)
+    from datetime import timedelta
+
+    from app.core.security import _create_token
+    from app.services.user import UserService
+
+    async with TestSession() as db:
+        user = await UserService(db).get_by_email("user@test.com")
+        token = _create_token(user.id, timedelta(hours=1), "password_reset")
+
+    r = await client.get("/api/v1/auth/verify-email", params={"token": token})
+    assert r.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_verify_email_flow(client):
+    await register_user(client)
+    from datetime import timedelta
+
+    from app.core.security import _create_token
+    from app.services.user import UserService
+
+    async with TestSession() as db:
+        user = await UserService(db).get_by_email("user@test.com")
+        token = _create_token(user.id, timedelta(hours=24), "email_verification")
+
+    r = await client.get("/api/v1/auth/verify-email", params={"token": token})
+    assert r.status_code == 200
+    assert "verified" in r.json()["message"].lower()
+
+    async with TestSession() as db:
+        user = await UserService(db).get_by_email("user@test.com")
+        assert user.is_verified is True
+
+
+@pytest.mark.asyncio
+async def test_verify_email_twice_is_graceful(client):
+    """Clicking an already-used (but still otherwise valid) verification
+    link a second time should not surface a confusing error — e.g. some
+    email clients pre-fetch links, which would otherwise "use up" the
+    token before the real user ever clicks it."""
+    await register_user(client)
+    from datetime import timedelta
+
+    from app.core.security import _create_token
+    from app.services.user import UserService
+
+    async with TestSession() as db:
+        user = await UserService(db).get_by_email("user@test.com")
+        token = _create_token(user.id, timedelta(hours=24), "email_verification")
+
+    r1 = await client.get("/api/v1/auth/verify-email", params={"token": token})
+    assert r1.status_code == 200
+
+    r2 = await client.get("/api/v1/auth/verify-email", params={"token": token})
+    # Either the denylist already caught the reuse (400, if Redis is
+    # available) or the is_verified short-circuit handled it gracefully
+    # (200) — either is correct, never a 500 or an unhandled error.
+    assert r2.status_code in (200, 400)
+
+
+@pytest.mark.asyncio
+async def test_unverified_user_can_still_log_in(client):
+    """Registration/login are not blocked on verification — is_verified is
+    informational, consuming apps decide what (if anything) to gate on it."""
+    await register_user(client)
+    r = await login_user(client)
+    assert r.status_code == 200
+
+
 # ── Metrics ───────────────────────────────────────────────────────────────────
 
 @pytest.mark.asyncio

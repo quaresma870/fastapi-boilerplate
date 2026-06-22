@@ -50,3 +50,14 @@ def build_reset_email(reset_url: str) -> str:
     <p>If you did not request this, ignore this email.</p>
     </body></html>
     """
+
+
+def build_verification_email(verify_url: str) -> str:
+    return f"""
+    <html><body>
+    <h2>Verify your email</h2>
+    <p>Click the link below to verify your email address. This link expires in 24 hours.</p>
+    <p><a href="{verify_url}">{verify_url}</a></p>
+    <p>If you did not create an account, ignore this email.</p>
+    </body></html>
+    """
