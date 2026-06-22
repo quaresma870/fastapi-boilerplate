@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.email import build_reset_email, build_verification_email, send_email
+from app.core.email import build_reset_email, build_verification_email
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -19,6 +19,7 @@ from app.core.security import (
     hash_password,
     is_token_denied,
 )
+from app.core.tasks import enqueue_email
 from app.schemas.user import (
     ForgotPasswordRequest,
     LoginRequest,
@@ -60,8 +61,8 @@ async def register(
 
     token = _create_token(user.id, timedelta(hours=24), token_type="email_verification")
     verify_url = f"{settings.ALLOWED_ORIGINS[0]}/verify-email?token={token}"
-    background_tasks.add_task(
-        send_email,
+    await enqueue_email(
+        background_tasks,
         to=user.email,
         subject="Verify your email",
         body_html=build_verification_email(verify_url),
@@ -138,8 +139,8 @@ async def forgot_password(
 
         token = _create_token(user.id, timedelta(hours=1), token_type="password_reset")
         reset_url = f"{settings.ALLOWED_ORIGINS[0]}/reset-password?token={token}"
-        background_tasks.add_task(
-            send_email,
+        await enqueue_email(
+            background_tasks,
             to=data.email,
             subject="Password Reset Request",
             body_html=build_reset_email(reset_url),
