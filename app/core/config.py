@@ -21,7 +21,7 @@ class Settings(BaseSettings):
         "Production-ready FastAPI boilerplate with JWT auth, "
         "rate limiting, versioned API, and full CI-CD."
     )
-    VERSION: str = "1.0.5"
+    VERSION: str = "1.1.0"
     ENVIRONMENT: str = "development"  # development | staging | production
     DEBUG: bool = True
 

@@ -3,6 +3,41 @@
 All notable changes to this project are documented here. See the
 [README](README.md) for current features and usage.
 
+### v1.1.0
+- feat: **Docker hardening** — multi-stage build (no compiler/build toolchain shipped in the
+  runtime image) and a non-root `app` user. CI's docker build job extended to also load the
+  built image and verify `docker run ... whoami` isn't root, not just that it builds.
+- feat: **admin user management** — `PATCH /users/{user_id}` lets a superuser activate/deactivate
+  or promote/demote another user. While scoping this, found that the core admin/superuser gate
+  (`get_current_superuser`, plus two already-gated endpoints) already existed and was already
+  tested — re-scoped to the genuine remaining gap: admins could view other users but had no way to
+  manage them without direct DB access. Refuses to target the caller's own account, so a superuser
+  can't accidentally demote or deactivate themselves.
+- feat: **email verification on registration** — `User.is_verified` (new column + migration),
+  sent via a single-use 24h token on `POST /auth/register`, confirmed via
+  `GET /auth/verify-email`. Registration and login are explicitly *not* blocked on verification
+  (documented policy decision, not left implicit) — `is_verified` is exposed for any consuming app
+  that wants to gate specific actions on it more strictly.
+- feat: **background task queue (arq)** for outgoing email — `core/tasks.enqueue_email()` uses
+  arq (Redis-backed) when `REDIS_ENABLED=true`, falling back to FastAPI's `BackgroundTasks`
+  otherwise, including if Redis is enabled but unreachable at enqueue time. Migrated both existing
+  email call sites (verification, password reset) to this single mechanism rather than leaving two
+  different background-execution paths for the same kind of operation. New `worker` service in
+  `docker-compose.yml`; run bare with `python -m arq app.worker.WorkerSettings`.
+- feat: **distributed tracing (OpenTelemetry)** — `core/tracing.setup_tracing()`, gated by
+  `OTEL_ENABLED` (same optional-dependency pattern as Redis elsewhere in this project).
+  Instruments FastAPI request handling and SQLAlchemy queries; exports via OTLP/HTTP when
+  configured, otherwise prints spans to the console with zero extra infrastructure required.
+  README includes a docker-compose Jaeger snippet for actually viewing traces locally.
+- docs: refreshed several already-stale README sections found while documenting the above — the
+  "Extending" section told people to run `alembic init` as if migrations weren't already set up
+  (they have been for a while), and listed Redis-backed rate limiting as "coming soon" when it had
+  already shipped. The API endpoints table was missing `verify-email`, `forgot/reset-password`,
+  `/metrics`, and the admin list/update-user endpoints entirely.
+- test: 18 new tests across the five features above (admin user management, email verification,
+  the task queue's fallback/arq paths, and tracing's disabled/enabled behaviour including a real
+  DB-spanning trace captured via `InMemorySpanExporter`) — 31 → 49 total.
+
 ### v1.0.5
 - fix: **silent password truncation past 72 bytes** — passwords were hashed by handing them
   directly to bcrypt via `passlib`, but bcrypt only ever uses the first 72 bytes of its input.
