@@ -151,6 +151,32 @@ Key variables:
 | `REFRESH_TOKEN_EXPIRE_DAYS` | `7` | Refresh token lifetime |
 | `RATE_LIMIT_PER_MINUTE` | `60` | General rate limit per IP |
 | `RATE_LIMIT_AUTH_PER_MINUTE` | `10` | Auth endpoint rate limit per IP |
+| `OTEL_ENABLED` | `false` | Turn on distributed tracing (see below) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | *(empty)* | Where to send traces; empty = print to console |
+
+---
+
+## Tracing
+
+Disabled by default (`OTEL_ENABLED=false`) — the app behaves identically with
+it off, no required dependency beyond the already-installed
+`opentelemetry-*` packages. Turn it on to see a span per request plus a
+nested span per DB query, so you can tell where time in a request actually
+went.
+
+With no `OTEL_EXPORTER_OTLP_ENDPOINT` set, spans print to the console — fine
+for a quick local look. To view them properly, run a local Jaeger instance:
+
+```yaml
+# Add to docker-compose.yml, then set:
+#   OTEL_ENABLED=true
+#   OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318/v1/traces
+  jaeger:
+    image: jaegertracing/all-in-one:1.62
+    ports:
+      - "16686:16686"   # UI at http://localhost:16686
+      - "4318:4318"     # OTLP HTTP receiver
+```
 
 ---
 

@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     RATE_LIMIT_PER_MINUTE: int = 60          # per IP, general endpoints
     RATE_LIMIT_AUTH_PER_MINUTE: int = 10     # per IP, auth endpoints
 
+    # ── Tracing (optional — see core/tracing.py) ──────────────────────────────
+    OTEL_ENABLED: bool = False
+    OTEL_SERVICE_NAME: str = "fastapi-boilerplate"
+    OTEL_EXPORTER_OTLP_ENDPOINT: str = ""    # e.g. http://localhost:4318/v1/traces
+                                              # empty = export to console instead
+
     # ── CORS / Hosts ──────────────────────────────────────────────────────────
     ALLOWED_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:8000"]
     ALLOWED_HOSTS: list[str] = ["*"]

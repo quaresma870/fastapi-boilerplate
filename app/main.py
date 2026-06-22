@@ -10,10 +10,12 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.v1.router import api_router
 from app.core.config import settings
+from app.core.database import engine
 from app.core.logging import setup_logging
 from app.core.metrics import MetricsMiddleware, metrics_endpoint
 from app.core.middleware import RequestIDMiddleware
 from app.core.rate_limit import RateLimitMiddleware
+from app.core.tracing import setup_tracing
 
 setup_logging()
 
@@ -50,6 +52,8 @@ def create_application() -> FastAPI:
         allowed_hosts=settings.ALLOWED_HOSTS,
     )
     app.add_middleware(RateLimitMiddleware)
+
+    setup_tracing(app, engine)
 
     # ── Routers ───────────────────────────────────────────────────────────────
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)

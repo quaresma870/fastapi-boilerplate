@@ -31,3 +31,10 @@ arq>=0.26.0            # Background task queue (Redis-backed); falls back to
                        # FastAPI's BackgroundTasks when REDIS_ENABLED=False
 
 prometheus-client>=0.20.0       # /metrics endpoint
+
+# ── Tracing (optional — see core/tracing.py) ──────────────────────────────────
+opentelemetry-api>=1.25.0
+opentelemetry-sdk>=1.25.0
+opentelemetry-instrumentation-fastapi>=0.46b0
+opentelemetry-instrumentation-sqlalchemy>=0.46b0
+opentelemetry-exporter-otlp-proto-http>=1.25.0
