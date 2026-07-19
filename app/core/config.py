@@ -37,6 +37,16 @@ class Settings(BaseSettings):
     # ── Database ──────────────────────────────────────────────────────────────
     DATABASE_URL: str = "sqlite+aiosqlite:///./dev.db"
     # For PostgreSQL: postgresql+asyncpg://user:password@host:5432/dbname
+    RUN_MIGRATIONS_ON_STARTUP: bool = True
+    # Runs `alembic upgrade head` automatically before the app starts serving
+    # requests — this is what makes both the plain `uvicorn app.main:app`
+    # quickstart and `docker compose up` actually produce a working app out
+    # of the box, rather than a fresh, table-less database that 500s on the
+    # very first request touching it (confirmed this was a real, reproduced
+    # bug — not hypothetical — before adding this). Set to False if you'd
+    # rather run migrations as an explicit, separate deploy step (the more
+    # conventional choice for a multi-replica production deployment, where
+    # every replica auto-migrating on startup is usually not what you want).
 
     # ── Redis ─────────────────────────────────────────────────────────────────
     REDIS_URL: str = "redis://localhost:6379/0"

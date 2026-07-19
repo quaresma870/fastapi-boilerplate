@@ -61,3 +61,62 @@ jobs:
             echo "Container is running as root — expected a non-root user."
             exit 1
           fi
+
+  compose-smoke-test:
+    name: docker compose up — real boot + real request
+    runs-on: ubuntu-latest
+    needs: test
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: docker compose up (the exact documented Quick Start command)
+        run: docker compose up -d --build
+
+      - name: Wait for the API to respond
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8000/api/v1/health/ready > /dev/null 2>&1; then
+              echo "API is up after $i attempt(s) (~$((i * 2))s)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API never became ready. Container logs:"
+          docker compose logs
+          exit 1
+
+      - name: "Real request: register a user (confirms migrations ran automatically)"
+        # This is the specific regression check for a real, reproduced
+        # bug: nothing in this repo ever ran `alembic upgrade head` (or
+        # any other table-creation step) for the REAL running app --
+        # only the test suite's own separate, independent fixture did.
+        # Following the exact documented Quick Start (`docker compose up
+        # --build`) produced a database with zero tables, and this
+        # request 500'd with "relation \"users\" does not exist" the
+        # moment anyone tried it. No CI job here had ever run `docker
+        # compose up` before, which is exactly how this shipped
+        # undetected -- confirmed by reproducing the original failure
+        # locally (a real uvicorn process against the real default .env)
+        # before fixing it, not assumed from reading the code.
+        run: |
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST http://127.0.0.1:8000/api/v1/auth/register \
+            -H "Content-Type: application/json" \
+            -d '{"email":"ci-test@example.com","username":"citestuser","password":"Secure123"}')
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          echo "HTTP $HTTP_CODE"
+          echo "$BODY"
+          if [ "$HTTP_CODE" != "201" ]; then
+            echo "Registration failed — expected HTTP 201. Container logs:"
+            docker compose logs api
+            exit 1
+          fi
+
+      - name: Show logs (always, for visibility)
+        if: always()
+        run: docker compose logs
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v
