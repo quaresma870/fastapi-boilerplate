@@ -3,6 +3,24 @@
 All notable changes to this project are documented here. See the
 [README](README.md) for current features and usage.
 
+### v1.1.1
+- fix: **nothing ever ran database migrations for the real app** — neither the plain `uvicorn`
+  Quick Start (default SQLite) nor `docker compose up` (Postgres) ever ran `alembic upgrade head`
+  or created any tables; only the test suite's own separate fixture did. The first request touching
+  the database (e.g. registration) 500'd with "no such table: users" / the Postgres equivalent.
+  Reproduced directly with a real `uvicorn` process before fixing it. Fixed via a new
+  `RUN_MIGRATIONS_ON_STARTUP` setting (default `true`) that runs `alembic upgrade head` as a real
+  subprocess in the app's existing (previously no-op) lifespan handler.
+- fix: found and fixed a second, related bug while testing the first for real — a bare `alembic`
+  command name doesn't resolve via PATH when uvicorn is launched via its venv's absolute path
+  without that venv's `bin/` separately on PATH, exactly how Docker's `CMD` invokes it. Fixed by
+  resolving `alembic`'s path relative to `sys.executable`, with a `shutil.which` fallback — verified
+  both paths for real, including inside the actual Docker container (whose `pip install --user`
+  topology differs from a local venv).
+- feat: **new CI job** — the first in this repo's history to actually run `docker compose up` and
+  hit a real endpoint (registering a real user), rather than only building the image. Verified to
+  catch the regression above by deliberately reintroducing it and confirming the job fails.
+
 ### v1.1.0
 - feat: **Docker hardening** — multi-stage build (no compiler/build toolchain shipped in the
   runtime image) and a non-root `app` user. CI's docker build job extended to also load the
